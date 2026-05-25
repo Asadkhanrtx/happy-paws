@@ -1,6 +1,8 @@
 import os
+import traceback
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import httpx
 import uvicorn
 
@@ -22,12 +24,18 @@ SERVICES = {
     "notifications": os.environ.get("NOTIFICATION_SERVICE_URL", "http://localhost:8005"),
 }
 
+# These headers must never be forwarded — they are connection-scoped, not end-to-end
+_HOP_BY_HOP = {
+    "host", "content-length", "transfer-encoding", "connection",
+    "keep-alive", "proxy-authenticate", "proxy-authorization",
+    "te", "trailers", "upgrade", "accept-encoding",
+}
+
 @app.get("/")
 @app.get("/health")
 def health():
     return {"status": "healthy", "service": "API Gateway"}
 
-# Handles both /api/{service}/... (via ALB path routing) and /{service}/... (direct)
 @app.api_route("/api/{service}/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
 async def route_with_prefix(service: str, path: str, request: Request):
     return await _proxy(service, path, request)
@@ -38,34 +46,41 @@ async def route_request(service: str, path: str, request: Request):
 
 async def _proxy(service: str, path: str, request: Request):
     if service not in SERVICES:
-        return {"error": f"Service '{service}' not found"}
+        return JSONResponse({"error": f"Service '{service}' not found"}, status_code=404)
 
     url = f"{SERVICES[service]}/{path}"
-    body = await request.body()
-
-    # Forward relevant headers, strip host to avoid conflicts
-    headers = {
-        k: v for k, v in request.headers.items()
-        if k.lower() not in ("host", "content-length")
-    }
-
-    # Append query string if present
     if request.url.query:
         url = f"{url}?{request.url.query}"
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.request(
-            method=request.method,
-            url=url,
-            headers=headers,
-            content=body,
-        )
+    body = await request.body()
+    headers = {
+        k: v for k, v in request.headers.items()
+        if k.lower() not in _HOP_BY_HOP
+    }
 
-    return Response(
-        content=response.content,
-        status_code=response.status_code,
-        media_type=response.headers.get("content-type", "application/json"),
-    )
+    print(f"[gateway] {request.method} {url}  body_len={len(body)}")
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            upstream = await client.request(
+                method=request.method,
+                url=url,
+                headers=headers,
+                content=body,
+            )
+        print(f"[gateway] upstream returned {upstream.status_code}")
+        return Response(
+            content=upstream.content,
+            status_code=upstream.status_code,
+            media_type=upstream.headers.get("content-type", "application/json"),
+        )
+    except Exception as exc:
+        print(f"[gateway] PROXY ERROR  {request.method} {url}  →  {exc}")
+        traceback.print_exc()
+        return JSONResponse(
+            {"error": "Gateway proxy error", "detail": str(exc)},
+            status_code=502,
+        )
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
