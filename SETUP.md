@@ -37,7 +37,7 @@ Internet
 | Endpoint   | `happypaws-db.c3oc42g2agem.ap-south-1.rds.amazonaws.com`    |
 | Port       | `3306`                                                       |
 | Username   | `happypaws`                                                  |
-| Password   | `HappyPaws123!`                                              |
+| Password   | `HappyPaws123`                                               |
 | Region     | `ap-south-1`                                                 |
 
 > **Do you need to create databases manually? NO.**
@@ -304,7 +304,7 @@ POST http://<ALB-DNS>/api/appointments/book
 ```bash
 # Run this from the Backend EC2
 mysql -h happypaws-db.c3oc42g2agem.ap-south-1.rds.amazonaws.com \
-      -u happypaws -p'HappyPaws123!' \
+      -u happypaws -p'HappyPaws123' \
       -e "SHOW DATABASES;"
 ```
 You should see: `happypaws_users`, `happypaws_pets`, `happypaws_appointments`, `happypaws_orders`.
@@ -353,10 +353,10 @@ All values are baked into the systemd units by `backend/setup-backend.sh`. If yo
 
 | Service             | Variable        | Value                                                                 |
 |---------------------|-----------------|-----------------------------------------------------------------------|
-| user-service        | DATABASE_URL    | `mysql+pymysql://happypaws:HappyPaws123!@<RDS_ENDPOINT>/happypaws_users` |
-| pet-service         | DATABASE_URL    | `mysql+pymysql://happypaws:HappyPaws123!@<RDS_ENDPOINT>/happypaws_pets` |
-| appointment-service | DATABASE_URL    | `mysql+pymysql://happypaws:HappyPaws123!@<RDS_ENDPOINT>/happypaws_appointments` |
-| order-service       | DATABASE_URL    | `mysql+pymysql://happypaws:HappyPaws123!@<RDS_ENDPOINT>/happypaws_orders` |
+| user-service        | DATABASE_URL    | `mysql+pymysql://happypaws:HappyPaws123@<RDS_ENDPOINT>/happypaws_users` |
+| pet-service         | DATABASE_URL    | `mysql+pymysql://happypaws:HappyPaws123@<RDS_ENDPOINT>/happypaws_pets` |
+| appointment-service | DATABASE_URL    | `mysql+pymysql://happypaws:HappyPaws123@<RDS_ENDPOINT>/happypaws_appointments` |
+| order-service       | DATABASE_URL    | `mysql+pymysql://happypaws:HappyPaws123@<RDS_ENDPOINT>/happypaws_orders` |
 | api-gateway         | *_SERVICE_URL   | all `http://localhost:800X` (co-located on same EC2)                  |
 
 ---
