@@ -39,6 +39,7 @@ python3 -m venv "$VENV_DIR"
 source "$VENV_DIR/bin/activate"
 pip install --quiet --upgrade pip
 pip install --quiet -r "$APP_DIR/requirements.txt"
+pip install --quiet 'bcrypt<4.0.0'   # passlib 1.7.4 incompatible with bcrypt 4.x
 ok "Python dependencies installed"
 
 # ── Step 3: Test RDS connection ───────────────────────────────
